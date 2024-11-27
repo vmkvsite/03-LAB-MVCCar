@@ -19,6 +19,12 @@ namespace MVCCar.Controllers
             _context = context;
         }
 
+        // GET: Cars
+        public async Task<IActionResult> Index()
+        {
+            return View(await _context.Car.ToListAsync());
+        }
+
         // GET: Cars/Details/5
         public async Task<IActionResult> Details(int? id)
         {
@@ -38,18 +44,15 @@ namespace MVCCar.Controllers
         }
 
         // GET: Cars/Create
-        public IActionResult Index()
+        public IActionResult Create()
         {
-            var cars = _context.Car.ToList(); // Pretpostavka: _context je vaš DbContext
-            return View(cars); // Prosljeđivanje liste automobila View-u
+            return View();
         }
 
         // POST: Cars/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,Name,Color,ProductionYear,Price")] Car car)
+        public async Task<IActionResult> Create([Bind("Id,Name,Color,ProductionYear,Price,Manufacturer")] Car car)
         {
             if (ModelState.IsValid)
             {
@@ -63,25 +66,48 @@ namespace MVCCar.Controllers
         // GET: Cars/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
+            if (id == null)
+            {
+                return NotFound();
+            }
 
-            var car = _context.Car.FirstOrDefault(c => c.Id == id);
-            if (car == null) return NotFound();
-
+            var car = await _context.Car.FindAsync(id);
+            if (car == null)
+            {
+                return NotFound();
+            }
             return View(car);
         }
 
         // POST: Cars/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Color,ProductionYear,Price")] Car car)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,Color,ProductionYear,Price,Manufacturer")] Car car)
         {
+            if (id != car.Id)
+            {
+                return NotFound();
+            }
+
             if (ModelState.IsValid)
             {
-                _context.Car.Update(car);
-                _context.SaveChanges();
-                return RedirectToAction("Index");
+                try
+                {
+                    _context.Update(car);
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    if (!CarExists(car.Id))
+                    {
+                        return NotFound();
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
+                return RedirectToAction(nameof(Index));
             }
             return View(car);
         }
@@ -89,8 +115,17 @@ namespace MVCCar.Controllers
         // GET: Cars/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
-            var car = _context.Car.FirstOrDefault(c => c.Id == id);
-            if (car == null) return NotFound();
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var car = await _context.Car
+                .FirstOrDefaultAsync(m => m.Id == id);
+            if (car == null)
+            {
+                return NotFound();
+            }
 
             return View(car);
         }
@@ -100,13 +135,14 @@ namespace MVCCar.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var car = _context.Car.FirstOrDefault(c => c.Id == id);
+            var car = await _context.Car.FindAsync(id);
             if (car != null)
             {
                 _context.Car.Remove(car);
-                _context.SaveChanges();
             }
-            return RedirectToAction("Index");
+
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
         }
 
         private bool CarExists(int id)
